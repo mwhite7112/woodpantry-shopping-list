@@ -1,0 +1,2 @@
+-- Shopping-list persistence queries will be added alongside the generation
+-- endpoints. This file exists now so sqlc is wired into the scaffold.

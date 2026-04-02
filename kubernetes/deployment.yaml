@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shopping-list
+  namespace: woodpantry
+  labels:
+    app: shopping-list
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shopping-list
+  template:
+    metadata:
+      labels:
+        app: shopping-list
+    spec:
+      containers:
+        - name: shopping-list
+          image: ghcr.io/mwhite7112/woodpantry-shopping-list:${IMAGE_TAG}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: RECIPE_URL
+              value: "http://recipes.woodpantry.svc.cluster.local"
+            - name: PANTRY_URL
+              value: "http://pantry.woodpantry.svc.cluster.local"
+            - name: DICTIONARY_URL
+              value: "http://ingredients.woodpantry.svc.cluster.local"
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shopping-list-db-secret
+                  key: url
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
