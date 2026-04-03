@@ -22,7 +22,7 @@ func TestConvertQuantity(t *testing.T) {
 
 	quantity, ok := convertQuantity(2, "cup", "tsp", conversions)
 	require.True(t, ok)
-	assert.Equal(t, 96.0, quantity)
+	assert.InDelta(t, 96.0, quantity, 0.0001)
 
 	quantity, ok = convertQuantity(48, "tsp", "cup", conversions)
 	require.True(t, ok)
@@ -36,7 +36,7 @@ func TestNormalizeLineItemFallsBackWhenNoConversionExists(t *testing.T) {
 		{FromUnit: "cup", ToUnit: "tbsp", Factor: 16},
 	})
 
-	assert.Equal(t, 2.0, quantity)
+	assert.InDelta(t, 2.0, quantity, 0.0001)
 	assert.Equal(t, "can", unit)
 }
 
@@ -169,7 +169,10 @@ func (s *stubQuerier) WithinTx(_ context.Context, fn func(q db.Querier) error) e
 	return fn(s)
 }
 
-func (s *stubQuerier) CreateShoppingList(ctx context.Context, arg db.CreateShoppingListParams) (db.ShoppingList, error) {
+func (s *stubQuerier) CreateShoppingList(
+	ctx context.Context,
+	arg db.CreateShoppingListParams,
+) (db.ShoppingList, error) {
 	return s.createShoppingListFn(ctx, arg)
 }
 

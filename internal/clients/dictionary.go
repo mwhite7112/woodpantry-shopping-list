@@ -51,7 +51,10 @@ func (c *DictionaryClient) GetIngredient(ctx context.Context, id uuid.UUID) (ser
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return service.IngredientDetail{}, fmt.Errorf("dictionary get ingredient: unexpected status %d", resp.StatusCode)
+		return service.IngredientDetail{}, fmt.Errorf(
+			"dictionary get ingredient: unexpected status %d",
+			resp.StatusCode,
+		)
 	}
 
 	var decoded ingredientResponse

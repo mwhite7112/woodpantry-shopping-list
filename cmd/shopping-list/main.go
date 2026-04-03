@@ -22,6 +22,12 @@ import (
 	"github.com/mwhite7112/woodpantry-shopping-list/internal/service"
 )
 
+const (
+	httpClientTimeout = 15 * time.Second
+	dialTimeout       = 5 * time.Second
+	keepAliveTimeout  = 30 * time.Second
+)
+
 func main() {
 	logging.Setup()
 
@@ -53,12 +59,12 @@ func run() error {
 
 	queries := db.New(sqlDB)
 	httpClient := &http.Client{
-		Timeout: 15 * time.Second,
+		Timeout: httpClientTimeout,
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 			DialContext: (&net.Dialer{
-				Timeout:   5 * time.Second,
-				KeepAlive: 30 * time.Second,
+				Timeout:   dialTimeout,
+				KeepAlive: keepAliveTimeout,
 			}).DialContext,
 		},
 	}

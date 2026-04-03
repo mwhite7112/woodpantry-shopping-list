@@ -27,6 +27,7 @@ func Setup() {
 
 type responseWriter struct {
 	http.ResponseWriter
+
 	status int
 }
 

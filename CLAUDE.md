@@ -104,6 +104,7 @@ shopping_list_items
 - Unit tests cover conversion traversal, fallback behavior, and generation/diff logic.
 - Handler tests cover `POST /shopping-list`, `GET /shopping-list/{id}`, and not-found handling.
 - Integration-tagged coverage exercises the HTTP handlers with real service wiring and a PostgreSQL testcontainer when the environment permits container access.
+- GitHub Actions matches the other Go services: blocking lint, advisory lint, Docker build validation, unit tests, integration-tagged tests, and a main-branch image build/push workflow.
 
 ## What To Avoid
 

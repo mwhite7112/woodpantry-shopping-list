@@ -128,6 +128,13 @@ sqlc generate -f internal/db/sqlc.yaml
 
 The integration-tagged suite uses `testcontainers-go` for PostgreSQL and skips cleanly when Docker or Podman is unavailable in the environment.
 
+## CI
+
+GitHub Actions now matches the pattern used by the other Go services:
+
+- pull request CI runs blocking lint, advisory lint, Docker build validation, unit tests, and integration-tagged tests
+- push to `main` runs tests, builds the container image, and pushes `ghcr.io/<owner>/woodpantry-shopping-list`
+
 ## Current Conversion Limits
 
 - Unit normalization only uses ingredient-specific conversions returned by the Dictionary service.

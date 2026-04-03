@@ -74,7 +74,7 @@ func TestCreateShoppingList(t *testing.T) {
 	assert.Equal(t, listID, resp.ID)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, ingredientID, resp.Items[0].IngredientID)
-	assert.Equal(t, 1.5, resp.Items[0].QuantityToBuy)
+	assert.InDelta(t, 1.5, resp.Items[0].QuantityToBuy, 0.0001)
 }
 
 func TestGetShoppingList(t *testing.T) {
