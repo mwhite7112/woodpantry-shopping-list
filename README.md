@@ -1,45 +1,88 @@
 # woodpantry-shopping-list
 
-Shopping List Service for WoodPantry. Given a set of recipe IDs, this service will eventually produce a deduplicated, aggregated shopping list diffed against current pantry state and grouped by ingredient category.
-
-Current status: scaffolded Go service baseline for Phase 2. The repo now includes the service entrypoint, env parsing, DB migration bootstrap, Kubernetes manifests, and a health-only HTTP router. Shopping-list generation endpoints are not implemented yet.
+Shopping List Service for WoodPantry. Given a set of recipe IDs, this service fetches recipe ingredient requirements, subtracts current pantry stock, normalizes units when the Ingredient Dictionary provides conversion data, persists the generated list, and returns the saved result.
 
 ## Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/healthz` | Implemented health check |
-| POST | `/shopping-list` | Planned; not implemented in the current scaffold |
-| GET | `/shopping-list/:id` | Planned; not implemented in the current scaffold |
+| GET | `/healthz` | Health check |
+| POST | `/shopping-list` | Generate and persist a shopping list from recipe IDs |
+| GET | `/shopping-list/:id` | Fetch a previously generated shopping list |
 
-## Scaffolded Structure
+## Request And Response Flow
 
-```text
-woodpantry-shopping-list/
-├── cmd/shopping-list/main.go
-├── internal/
-│   ├── api/
-│   │   ├── handlers.go
-│   │   └── handlers_test.go
-│   ├── db/
-│   │   ├── migrations/
-│   │   ├── queries/
-│   │   ├── migrations.go
-│   │   └── sqlc.yaml
-│   ├── logging/
-│   │   └── logging.go
-│   └── service/
-│       └── service.go
-├── kubernetes/
-├── Dockerfile
-├── Makefile
-├── go.mod
-└── .mockery.yaml
+### POST /shopping-list
+
+Request body:
+
+```json
+{
+  "recipe_ids": ["uuid", "uuid"],
+  "meal_plan_id": "uuid-optional"
+}
 ```
 
-## Database Baseline
+The service:
 
-The initial migration creates:
+1. Calls `GET /recipes/{id}` on Recipe Service for each requested recipe.
+2. Calls `GET /pantry` on Pantry Service once for current stock.
+3. Calls `GET /ingredients/{id}` and `GET /ingredients/{id}/conversions` on Ingredient Dictionary for the ingredient metadata and unit conversions needed to normalize quantities.
+4. Aggregates non-optional recipe ingredients across recipes.
+5. Converts recipe and pantry quantities into the ingredient default unit when a conversion path exists.
+6. Subtracts pantry stock from required quantities.
+7. Persists the generated list and the items that still need to be purchased.
+
+Response body:
+
+```json
+{
+  "id": "uuid",
+  "recipe_ids": ["uuid", "uuid"],
+  "meal_plan_id": "uuid-optional",
+  "created_at": "2026-04-03T15:00:00Z",
+  "items": [
+    {
+      "id": "uuid",
+      "ingredient_id": "uuid",
+      "name": "flour",
+      "category": "baking",
+      "quantity_needed": 1.5,
+      "quantity_in_pantry": 0.25,
+      "quantity_to_buy": 1.25,
+      "unit": "cup",
+      "created_at": "2026-04-03T15:00:00Z"
+    }
+  ]
+}
+```
+
+### GET /shopping-list/:id
+
+Returns the persisted shopping list and its saved items in the same response shape as `POST /shopping-list`.
+
+## Upstream Contracts Consumed
+
+- Recipe Service: `GET /recipes/{id}`
+- Pantry Service: `GET /pantry`
+- Ingredient Dictionary: `GET /ingredients/{id}`
+- Ingredient Dictionary: `GET /ingredients/{id}/conversions`
+
+The service intentionally does not invent any new upstream APIs. It uses the currently implemented response shapes from those services, including the Ingredient Dictionary's capitalized JSON fields on `GET /ingredients/{id}`.
+
+## Generation Rules
+
+- Ingredients aggregate by canonical `ingredient_id`.
+- Optional recipe ingredients are skipped.
+- The Ingredient Dictionary `default_unit` is used as the normalization target when the service can find a conversion path.
+- Conversion paths are resolved from the Dictionary conversion table and can use direct, inverse, or multi-step paths.
+- If no conversion path exists, the original unit is preserved and aggregation continues within that unit only.
+- Pantry stock is subtracted only when it normalizes into the same unit bucket as the recipe requirement.
+- Items whose `quantity_to_buy` is zero or negative are not persisted as shopping-list items.
+
+## Database
+
+The service persists generated lists into:
 
 ```text
 shopping_lists
@@ -61,15 +104,7 @@ shopping_list_items
   created_at
 ```
 
-This is only the persistence scaffold. CRUD queries and generated `sqlc` output have not been added yet.
-
-## Planned Generation Flow
-
-1. Fetch pantry state from Pantry Service.
-2. Fetch each requested recipe from Recipe Service.
-3. Normalize and aggregate ingredient quantities using Dictionary conversion data.
-4. Diff needed amounts against pantry stock.
-5. Persist the generated list and return grouped results.
+`sqlc` is generated from `internal/db/queries/shopping_lists.sql`.
 
 ## Configuration
 
@@ -82,15 +117,19 @@ This is only the persistence scaffold. CRUD queries and generated `sqlc` output 
 | `DICTIONARY_URL` | required | Ingredient Dictionary base URL |
 | `LOG_LEVEL` | `info` | Log level |
 
-`PORT` and `LOG_LEVEL` default if unset. The service exits at startup if `DB_URL`, `RECIPE_URL`, `PANTRY_URL`, or `DICTIONARY_URL` are missing.
-
-## Development Baseline
+## Development
 
 ```bash
 go test ./...
-go build ./cmd/shopping-list
+go test ./... -tags=integration
 go run ./cmd/shopping-list
 sqlc generate -f internal/db/sqlc.yaml
 ```
 
-At this stage, `go run` starts a service that validates config, connects to Postgres, runs migrations, and serves `GET /healthz`.
+The integration-tagged suite uses `testcontainers-go` for PostgreSQL and skips cleanly when Docker or Podman is unavailable in the environment.
+
+## Current Conversion Limits
+
+- Unit normalization only uses ingredient-specific conversions returned by the Dictionary service.
+- No global synonym map exists in this service, so units like `cups` vs `cup` or `oz` vs `ounce` depend on upstream data already being normalized consistently.
+- If the same ingredient appears in incompatible units and the Dictionary has no conversion path between them, the service keeps separate unit buckets instead of guessing.

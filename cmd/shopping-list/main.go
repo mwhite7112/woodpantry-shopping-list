@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -14,6 +16,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/mwhite7112/woodpantry-shopping-list/internal/api"
+	"github.com/mwhite7112/woodpantry-shopping-list/internal/clients"
 	"github.com/mwhite7112/woodpantry-shopping-list/internal/db"
 	"github.com/mwhite7112/woodpantry-shopping-list/internal/logging"
 	"github.com/mwhite7112/woodpantry-shopping-list/internal/service"
@@ -48,11 +51,25 @@ func run() error {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 
-	svc := service.New(service.Config{
-		RecipeURL:     cfg.RecipeURL,
-		PantryURL:     cfg.PantryURL,
-		DictionaryURL: cfg.DictionaryURL,
-	})
+	queries := db.New(sqlDB)
+	httpClient := &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   5 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+		},
+	}
+
+	svc := service.New(
+		sqlDB,
+		queries,
+		clients.NewRecipeClient(cfg.RecipeURL, httpClient),
+		clients.NewPantryClient(cfg.PantryURL, httpClient),
+		clients.NewDictionaryClient(cfg.DictionaryURL, httpClient),
+	)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	slog.Info("shopping-list service listening", "addr", addr)
