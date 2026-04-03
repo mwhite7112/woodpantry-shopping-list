@@ -1,0 +1,153 @@
+# Blocking lint config — PR-gating checks that must pass before merge.
+# Only correctness/safety linters. Style and quality checks live in
+# .golangci-advisory.yaml and run as non-blocking annotations.
+
+version: "2"
+
+issues:
+  max-same-issues: 50
+
+formatters:
+  enable:
+    - goimports
+    - golines
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/mwhite7112
+    golines:
+      max-len: 120
+
+linters:
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - copyloopvar
+    - depguard
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - forbidigo
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - gocritic
+    - gomoddirectives
+    - gosec
+    - govet
+    - ineffassign
+    - intrange
+    - loggercheck
+    - makezero
+    - mirror
+    - nilerr
+    - nilnesserr
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - predeclared
+    - protogetter
+    - reassign
+    - rowserrcheck
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - testifylint
+    - tparallel
+    - unconvert
+    - unparam
+    - unqueryvet
+    - unused
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+
+  settings:
+    depguard:
+      rules:
+        "deprecated":
+          files: ["$all"]
+          deny:
+            - pkg: github.com/golang/protobuf
+              desc: Use google.golang.org/protobuf instead
+            - pkg: github.com/satori/go.uuid
+              desc: Use github.com/google/uuid instead
+            - pkg: github.com/gofrs/uuid$
+              desc: Use github.com/gofrs/uuid/v5 or later
+        "non-test files":
+          files: ["!$test"]
+          deny:
+            - pkg: math/rand$
+              desc: Use math/rand/v2 instead
+        "non-main files":
+          files: ["!**/main.go"]
+          deny:
+            - pkg: log$
+              desc: Use log/slog instead
+
+    errcheck:
+      check-type-assertions: true
+
+    exhaustive:
+      check: [switch, map]
+
+    gochecksumtype:
+      default-signifies-exhaustive: false
+
+    gocritic:
+      settings:
+        captLocal:
+          paramsOnly: false
+        underef:
+          skipRecvDeref: false
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+        - shadow
+
+    nolintlint:
+      allow-no-explanation: [errcheck, funlen, gocognit, golines]
+      require-explanation: true
+      require-specific: true
+
+    reassign:
+      patterns: [".*"]
+
+    rowserrcheck:
+      packages: [github.com/jmoiron/sqlx]
+
+    staticcheck:
+      checks: [all, -ST1000, -ST1016, -QF1008]
+
+    usetesting:
+      os-temp-dir: true
+
+  exclusions:
+    warn-unused: true
+    presets:
+      - std-error-handling
+      - common-false-positives
+    rules:
+      - path: '_test\.go'
+        linters: [bodyclose, dupl, errcheck, funlen, goconst, gosec, noctx, wrapcheck]
+      - linters: [gosec]
+        text: 'G104'
+        path: 'internal/api/'
+      - linters: [gosec]
+        text: 'G706'
+      - linters: [gosec]
+        text: 'G704'
+      - linters: [gosec]
+        text: 'G114'
+      - linters: [noctx]
+        path: '^cmd/'
+      - linters: [gocritic]
+        text: 'ifElseChain'
