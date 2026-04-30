@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -106,11 +108,17 @@ func handleGetShoppingList(svc shoppingListService) http.HandlerFunc {
 }
 
 type shoppingListResponse struct {
-	ID         uuid.UUID              `json:"id"`
-	RecipeIDs  []uuid.UUID            `json:"recipe_ids"`
-	MealPlanID *uuid.UUID             `json:"meal_plan_id,omitempty"`
-	CreatedAt  string                 `json:"created_at"`
-	Items      []shoppingItemResponse `json:"items"`
+	ID         uuid.UUID                   `json:"id"`
+	RecipeIDs  []uuid.UUID                 `json:"recipe_ids"`
+	MealPlanID *uuid.UUID                  `json:"meal_plan_id,omitempty"`
+	CreatedAt  string                      `json:"created_at"`
+	Items      []shoppingItemResponse      `json:"items"`
+	Groups     []shoppingItemGroupResponse `json:"groups"`
+}
+
+type shoppingItemGroupResponse struct {
+	Category string                 `json:"category"`
+	Items    []shoppingItemResponse `json:"items"`
 }
 
 type shoppingItemResponse struct {
@@ -147,7 +155,43 @@ func responseFromShoppingList(list service.ShoppingList) shoppingListResponse {
 		MealPlanID: list.MealPlanID,
 		CreatedAt:  list.CreatedAt.UTC().Format(time.RFC3339),
 		Items:      items,
+		Groups:     groupItemsByCategory(items),
 	}
+}
+
+func groupItemsByCategory(items []shoppingItemResponse) []shoppingItemGroupResponse {
+	itemsByCategory := make(map[string][]shoppingItemResponse)
+	categories := make([]string, 0)
+
+	for _, item := range items {
+		if _, ok := itemsByCategory[item.Category]; !ok {
+			categories = append(categories, item.Category)
+		}
+		itemsByCategory[item.Category] = append(itemsByCategory[item.Category], item)
+	}
+
+	slices.Sort(categories)
+
+	groups := make([]shoppingItemGroupResponse, 0, len(categories))
+	for _, category := range categories {
+		groupItems := slices.Clone(itemsByCategory[category])
+		slices.SortFunc(groupItems, func(a shoppingItemResponse, b shoppingItemResponse) int {
+			if cmp := strings.Compare(a.Name, b.Name); cmp != 0 {
+				return cmp
+			}
+			if cmp := strings.Compare(a.Unit, b.Unit); cmp != 0 {
+				return cmp
+			}
+			return strings.Compare(a.ID.String(), b.ID.String())
+		})
+
+		groups = append(groups, shoppingItemGroupResponse{
+			Category: category,
+			Items:    groupItems,
+		})
+	}
+
+	return groups
 }
 
 func jsonOK(w http.ResponseWriter, v any) {

@@ -53,13 +53,33 @@ Response body:
       "unit": "cup",
       "created_at": "2026-04-03T15:00:00Z"
     }
+  ],
+  "groups": [
+    {
+      "category": "baking",
+      "items": [
+        {
+          "id": "uuid",
+          "ingredient_id": "uuid",
+          "name": "flour",
+          "category": "baking",
+          "quantity_needed": 1.5,
+          "quantity_in_pantry": 0.25,
+          "quantity_to_buy": 1.25,
+          "unit": "cup",
+          "created_at": "2026-04-03T15:00:00Z"
+        }
+      ]
+    }
   ]
 }
 ```
 
+`items` remains the backwards-compatible flat list. `groups` is additive and contains the same persisted items grouped by their existing `category` value. Groups are sorted by category, and items inside each group are sorted by item name.
+
 ### GET /shopping-list/:id
 
-Returns the persisted shopping list and its saved items in the same response shape as `POST /shopping-list`.
+Returns the persisted shopping list and its saved flat `items` plus category `groups` in the same response shape as `POST /shopping-list`.
 
 ## Upstream Contracts Consumed
 
@@ -79,6 +99,7 @@ The service intentionally does not invent any new upstream APIs. It uses the cur
 - If no conversion path exists, the original unit is preserved and aggregation continues within that unit only.
 - Pantry stock is subtracted only when it normalizes into the same unit bucket as the recipe requirement.
 - Items whose `quantity_to_buy` is zero or negative are not persisted as shopping-list items.
+- API responses preserve the flat `items` list and additionally include `groups` built from each item's persisted `category`.
 
 ## Database
 
