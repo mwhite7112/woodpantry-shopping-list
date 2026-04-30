@@ -98,6 +98,10 @@ func TestIntegration_CreateAndGetShoppingList(t *testing.T) {
 	assert.InDelta(t, 1.5, created.Items[0].QuantityNeeded, 0.0001)
 	assert.InDelta(t, 0.25, created.Items[0].QuantityInPantry, 0.0001)
 	assert.InDelta(t, 1.25, created.Items[0].QuantityToBuy, 0.0001)
+	require.Len(t, created.Groups, 1)
+	assert.Equal(t, "baking", created.Groups[0].Category)
+	require.Len(t, created.Groups[0].Items, 1)
+	assert.Equal(t, created.Items[0].ID, created.Groups[0].Items[0].ID)
 
 	getReq := httptest.NewRequest(http.MethodGet, "/shopping-list/"+created.ID.String(), nil)
 	getRec := httptest.NewRecorder()
@@ -110,6 +114,10 @@ func TestIntegration_CreateAndGetShoppingList(t *testing.T) {
 	assert.Equal(t, created.ID, loaded.ID)
 	require.Len(t, loaded.Items, 1)
 	assert.Equal(t, "cup", loaded.Items[0].Unit)
+	require.Len(t, loaded.Groups, 1)
+	assert.Equal(t, "baking", loaded.Groups[0].Category)
+	require.Len(t, loaded.Groups[0].Items, 1)
+	assert.Equal(t, loaded.Items[0].ID, loaded.Groups[0].Items[0].ID)
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
